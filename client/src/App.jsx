@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from "react";
 import {
   LayoutDashboard,
@@ -32,14 +33,32 @@ const orderStatuses = [
   "Cancelled",
 ];
 
+const demoCustomers = [
+  { id: "demo-1", name: "Priya Sharma", email: "priya@example.com", orders: 2, spent: 2500, status: "Active" },
+  { id: "demo-2", name: "Rahul Verma", email: "rahul@example.com", orders: 1, spent: 1800, status: "New" },
+  { id: "demo-3", name: "Ananya Naik", email: "ananya@example.com", orders: 3, spent: 2499, status: "Active" },
+  { id: "demo-4", name: "Arjun Mehta", email: "arjun@example.com", orders: 2, spent: 3200, status: "Follow-up" },
+  { id: "demo-5", name: "Sneha Patil", email: "sneha@example.com", orders: 4, spent: 4100, status: "Active" },
+];
+
+const demoOrders = [
+  { id: 1042, orderNumber: "#WC-1042", customer: "Priya Sharma", customerEmail: "priya@example.com", total: 2500, status: "Delivered", date: "2026-10-14", items: 2 },
+  { id: 1041, orderNumber: "#WC-1041", customer: "Rahul Verma", customerEmail: "rahul@example.com", total: 1800, status: "Processing", date: "2026-10-13", items: 1 },
+  { id: 1040, orderNumber: "#WC-1040", customer: "Ananya Naik", customerEmail: "ananya@example.com", total: 2499, status: "Pending", date: "2026-10-12", items: 3 },
+  { id: 1039, orderNumber: "#WC-1039", customer: "Arjun Mehta", customerEmail: "arjun@example.com", total: 3200, status: "Shipped", date: "2026-10-11", items: 2 },
+  { id: 1038, orderNumber: "#WC-1038", customer: "Sneha Patil", customerEmail: "sneha@example.com", total: 4100, status: "Cancelled", date: "2026-10-10", items: 4 },
+];
+
 export default function App() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState("");
+  const [usingDemoCustomers, setUsingDemoCustomers] = useState(false);
 
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState("");
+  const [usingDemoOrders, setUsingDemoOrders] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
   const [followups, setFollowups] = useState([]);
@@ -63,7 +82,7 @@ export default function App() {
   const [deletingId, setDeletingId] = useState(null);
   const [actionMessage, setActionMessage] = useState("");
 
-  // Load customers
+  // Load customers; use demo data if the API is unavailable.
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     setApiError("");
@@ -72,22 +91,25 @@ export default function App() {
       const response = await fetch(API_URL);
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.success === false) {
         throw new Error(result.message || "Could not load customers.");
       }
 
       setCustomers(result.data || []);
+      setUsingDemoCustomers(false);
     } catch (error) {
       console.error("Customer API error:", error);
-      setApiError(
-        "Could not load customers. Make sure the backend is running on port 5000.",
+      setCustomers((current) =>
+        current.length > 0 && usingDemoCustomers ? current : demoCustomers,
       );
+      setUsingDemoCustomers(true);
+      setApiError("");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [usingDemoCustomers]);
 
-  // Load orders
+  // Load orders; use demo data if the API is unavailable.
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
     setOrdersError("");
@@ -96,22 +118,22 @@ export default function App() {
       const response = await fetch(ORDERS_URL);
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.success === false) {
         throw new Error(result.message || "Could not load orders.");
       }
 
       setOrders(result.data || []);
+      setUsingDemoOrders(false);
     } catch (error) {
       console.error("Orders API error:", error);
-      setOrdersError(
-        "Could not load orders. Make sure the backend is running.",
-      );
+      setOrders(demoOrders);
+      setUsingDemoOrders(true);
+      setOrdersError("Showing sample demo orders because the order API is unavailable.");
     } finally {
       setOrdersLoading(false);
     }
   }, []);
 
-  // Load saved follow-up drafts
   const loadFollowups = useCallback(async () => {
     setFollowupsLoading(true);
     setFollowupsError("");
@@ -120,16 +142,14 @@ export default function App() {
       const response = await fetch(FOLLOWUPS_URL);
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.success === false) {
         throw new Error(result.message || "Could not load follow-ups.");
       }
 
       setFollowups(result.data || []);
     } catch (error) {
       console.error("Follow-ups API error:", error);
-      setFollowupsError(
-        "Could not load follow-ups. Make sure the backend is running.",
-      );
+      setFollowupsError("Could not load follow-ups. Make sure the backend is running.");
     } finally {
       setFollowupsLoading(false);
     }
@@ -142,15 +162,12 @@ export default function App() {
   }, [loadCustomers, loadOrders, loadFollowups]);
 
   const filtered = customers.filter((customer) =>
-    `${customer.name} ${customer.email}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+    `${customer.name} ${customer.email}`.toLowerCase().includes(search.toLowerCase()),
   );
 
   const formatCurrency = (amount) =>
     `₹${Number(amount || 0).toLocaleString("en-IN")}`;
 
-  // Customer form actions
   const openAddForm = () => {
     setEditingCustomer(null);
     setCustomerForm(emptyCustomerForm);
@@ -178,7 +195,6 @@ export default function App() {
     setFormError("");
   };
 
-  // Add or edit a customer
   const handleSaveCustomer = async (event) => {
     event.preventDefault();
     setFormError("");
@@ -192,39 +208,67 @@ export default function App() {
       return;
     }
 
+    if (usingDemoCustomers || editingCustomer?.id?.toString().startsWith("demo-")) {
+      if (
+        customers.some(
+          (customer) =>
+            customer.email.toLowerCase() === email.toLowerCase() &&
+            customer.id !== editingCustomer?.id,
+        )
+      ) {
+        setFormError("A customer with this email already exists.");
+        return;
+      }
+
+      if (editingCustomer) {
+        setCustomers((current) =>
+          current.map((customer) =>
+            customer.id === editingCustomer.id
+              ? { ...customer, name, email, status: customerForm.status }
+              : customer,
+          ),
+        );
+        setActionMessage("Demo customer updated in this session.");
+      } else {
+        setCustomers((current) => [
+          {
+            id: `demo-${Date.now()}`,
+            name,
+            email,
+            status: customerForm.status,
+            orders: 0,
+            spent: 0,
+          },
+          ...current,
+        ]);
+        setActionMessage("Demo customer added in this session.");
+      }
+
+      closeCustomerForm();
+      return;
+    }
+
     setSavingCustomer(true);
 
     try {
       const isEditing = Boolean(editingCustomer);
-
       const response = await fetch(
         isEditing ? `${API_URL}/${editingCustomer.id}` : API_URL,
         {
           method: isEditing ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            email,
-            status: customerForm.status,
-          }),
+          body: JSON.stringify({ name, email, status: customerForm.status }),
         },
       );
 
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          result.message || result.error || "Could not save the customer.",
-        );
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || result.error || "Could not save customer.");
       }
 
       closeCustomerForm();
-      setActionMessage(
-        isEditing
-          ? "Customer updated successfully."
-          : "Customer added successfully.",
-      );
-
+      setActionMessage(isEditing ? "Customer updated successfully." : "Customer added successfully.");
       await loadCustomers();
     } catch (error) {
       setFormError(error.message || "Something went wrong.");
@@ -233,44 +277,50 @@ export default function App() {
     }
   };
 
-  // Delete a customer
   const handleDeleteCustomer = async (customer) => {
-    if (!window.confirm(`Are you sure you want to delete ${customer.name}?`)) {
-      return;
-    }
+    if (!window.confirm(`Are you sure you want to delete ${customer.name}?`)) return;
 
     setDeletingId(customer.id);
     setActionMessage("");
 
-    try {
-      const response = await fetch(`${API_URL}/${customer.id}`, {
-        method: "DELETE",
-      });
+    if (usingDemoCustomers || customer.id?.toString().startsWith("demo-")) {
+      setCustomers((current) => current.filter((item) => item.id !== customer.id));
+      if (selected?.id === customer.id) setSelected(null);
+      setActionMessage("Demo customer deleted in this session.");
+      setDeletingId(null);
+      return;
+    }
 
+    try {
+      const response = await fetch(`${API_URL}/${customer.id}`, { method: "DELETE" });
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          result.message || result.error || "Could not delete the customer.",
-        );
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || result.error || "Could not delete customer.");
       }
 
-      if (selected?.id === customer.id) {
-        setSelected(null);
-      }
-
+      if (selected?.id === customer.id) setSelected(null);
       setActionMessage("Customer deleted successfully.");
       await loadCustomers();
     } catch (error) {
-      setActionMessage(error.message || "Could not delete the customer.");
+      setActionMessage(error.message || "Could not delete customer.");
     } finally {
       setDeletingId(null);
     }
   };
 
-  // Update an order's status
   const handleOrderStatusChange = async (order, newStatus) => {
     if (newStatus === order.status) return;
+
+    if (usingDemoOrders) {
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id ? { ...item, status: newStatus } : item,
+        ),
+      );
+      setOrdersError("Demo status updated temporarily; it is not saved to WooCommerce.");
+      return;
+    }
 
     setUpdatingOrderId(order.id);
     setOrdersError("");
@@ -284,15 +334,15 @@ export default function App() {
 
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(
-          result.message || result.error || "Could not update order status.",
-        );
+      if (!response.ok || result.success === false) {
+        throw new Error(result.message || result.error || "Could not update order status.");
       }
 
-      setOrders((currentOrders) =>
-        currentOrders.map((item) =>
-          item.id === order.id ? { ...item, status: result.data.status } : item,
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id
+            ? { ...item, status: result.data?.status || newStatus }
+            : item,
         ),
       );
     } catch (error) {
@@ -302,7 +352,6 @@ export default function App() {
     }
   };
 
-  // Prepare a follow-up message for the selected customer
   const handleFollowupCustomerChange = (customerId) => {
     setSelectedFollowupCustomer(customerId);
     setFollowupsError("");
@@ -318,7 +367,6 @@ export default function App() {
     );
   };
 
-  // Save a follow-up draft to the backend
   const handleSaveFollowup = async () => {
     if (!selectedFollowupCustomer || !draft.trim()) {
       setFollowupsError("Please select a customer and enter a message.");
@@ -340,7 +388,7 @@ export default function App() {
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.success === false) {
         throw new Error(result.message || "Could not save the follow-up.");
       }
 
@@ -355,7 +403,6 @@ export default function App() {
     }
   };
 
-  // Approve a saved follow-up draft
   const handleApproveFollowup = async (followup) => {
     setUpdatingFollowupId(followup.id);
     setFollowupsError("");
@@ -369,12 +416,12 @@ export default function App() {
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.success === false) {
         throw new Error(result.message || "Could not approve the draft.");
       }
 
       setFollowups((current) =>
-        current.map((item) => (item.id === followup.id ? result.data : item)),
+        current.map((item) => item.id === followup.id ? result.data : item),
       );
       setFollowupsError("Draft approved. No message was sent.");
     } catch (error) {
@@ -384,7 +431,6 @@ export default function App() {
     }
   };
 
-  // Delete a saved follow-up draft
   const handleDeleteFollowup = async (followup) => {
     if (!window.confirm("Delete this follow-up draft?")) return;
 
@@ -398,16 +444,14 @@ export default function App() {
 
       const result = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || result.success === false) {
         throw new Error(result.message || "Could not delete the draft.");
       }
 
-      setFollowups((current) =>
-        current.filter((item) => item.id !== followup.id),
-      );
+      setFollowups((current) => current.filter((item) => item.id !== followup.id));
       setFollowupsError("Follow-up draft deleted.");
     } catch (error) {
-      setFollowupsError(error.message || "Could not delete the draft.");
+      setFollowupsError(error.message || "Could not delete the follow-up.");
     } finally {
       setDeletingFollowupId(null);
     }
@@ -466,35 +510,10 @@ export default function App() {
         {tab === "Overview" && (
           <div className="stats">
             {[
-              [
-                "Total customers",
-                String(customers.length),
-                "Customer records in backend",
-                Users,
-              ],
-              [
-                "Orders tracked",
-                String(orders.length),
-                "Sample orders in backend",
-                ShoppingCart,
-              ],
-              [
-                "Follow-ups saved",
-                String(followups.length),
-                "Saved demo follow-ups",
-                MessageSquare,
-              ],
-              [
-                "Revenue tracked",
-                formatCurrency(
-                  orders.reduce(
-                    (sum, order) => sum + Number(order.total || 0),
-                    0,
-                  ),
-                ),
-                "Based on sample orders",
-                TrendingUp,
-              ],
+              ["Total customers", String(customers.length), usingDemoCustomers ? "Fallback sample customers" : "Customer records in backend", Users],
+              ["Orders tracked", String(orders.length), usingDemoOrders ? "Fallback sample orders" : "Sample orders in backend", ShoppingCart],
+              ["Follow-ups saved", String(followups.length), "Saved demo follow-ups", MessageSquare],
+              ["Revenue tracked", formatCurrency(orders.reduce((sum, order) => sum + Number(order.total || 0), 0)), "Based on sample orders", TrendingUp],
             ].map(([label, value, note, Icon]) => (
               <div className="stat" key={label}>
                 <div className="stat-top">
@@ -515,7 +534,6 @@ export default function App() {
                 <h3>Customer directory</h3>
                 <p>Add, search, view, edit and delete customer records</p>
               </div>
-
               <div className="customer-tools">
                 <div className="search">
                   <Search size={17} />
@@ -525,112 +543,44 @@ export default function App() {
                     onChange={(event) => setSearch(event.target.value)}
                   />
                 </div>
-
-                <button
-                  className="primary add-customer-btn"
-                  onClick={openAddForm}
-                >
+                <button className="primary add-customer-btn" onClick={openAddForm}>
                   <Plus size={16} /> Add Customer
                 </button>
               </div>
             </div>
 
-            {actionMessage && (
-              <p className="success" role="status">
-                {actionMessage}
-              </p>
-            )}
-
+            {actionMessage && <p className="success" role="status">{actionMessage}</p>}
             {loading && <p className="empty">Loading customers...</p>}
             {apiError && <p className="empty">{apiError}</p>}
 
             {showCustomerForm && (
               <form className="customer-form" onSubmit={handleSaveCustomer}>
                 <div className="form-heading">
-                  <h3>
-                    {editingCustomer ? "Edit customer" : "Add new customer"}
-                  </h3>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={closeCustomerForm}
-                    aria-label="Close customer form"
-                  >
+                  <h3>{editingCustomer ? "Edit customer" : "Add new customer"}</h3>
+                  <button type="button" className="icon-btn" onClick={closeCustomerForm} aria-label="Close customer form">
                     <X size={18} />
                   </button>
                 </div>
 
                 <label htmlFor="customer-name">Full name</label>
-                <input
-                  id="customer-name"
-                  type="text"
-                  value={customerForm.name}
-                  onChange={(event) =>
-                    setCustomerForm({
-                      ...customerForm,
-                      name: event.target.value,
-                    })
-                  }
-                  placeholder="Enter customer name"
-                  required
-                />
+                <input id="customer-name" type="text" value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} placeholder="Enter customer name" required />
 
                 <label htmlFor="customer-email">Email address</label>
-                <input
-                  id="customer-email"
-                  type="email"
-                  value={customerForm.email}
-                  onChange={(event) =>
-                    setCustomerForm({
-                      ...customerForm,
-                      email: event.target.value,
-                    })
-                  }
-                  placeholder="customer@example.com"
-                  required
-                />
+                <input id="customer-email" type="email" value={customerForm.email} onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })} placeholder="customer@example.com" required />
 
                 <label htmlFor="customer-status">Status</label>
-                <select
-                  id="customer-status"
-                  value={customerForm.status}
-                  onChange={(event) =>
-                    setCustomerForm({
-                      ...customerForm,
-                      status: event.target.value,
-                    })
-                  }
-                >
+                <select id="customer-status" value={customerForm.status} onChange={(event) => setCustomerForm({ ...customerForm, status: event.target.value })}>
                   <option value="New">New</option>
                   <option value="Active">Active</option>
                   <option value="Follow-up">Follow-up</option>
                 </select>
 
-                {formError && (
-                  <p className="form-error" role="alert">
-                    {formError}
-                  </p>
-                )}
+                {formError && <p className="form-error" role="alert">{formError}</p>}
 
                 <div className="form-actions">
-                  <button
-                    type="button"
-                    className="text-btn"
-                    onClick={closeCustomerForm}
-                    disabled={savingCustomer}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={savingCustomer}
-                  >
-                    {savingCustomer
-                      ? "Saving..."
-                      : editingCustomer
-                        ? "Save Changes"
-                        : "Add Customer"}
+                  <button type="button" className="text-btn" onClick={closeCustomerForm} disabled={savingCustomer}>Cancel</button>
+                  <button type="submit" className="primary" disabled={savingCustomer}>
+                    {savingCustomer ? "Saving..." : editingCustomer ? "Save Changes" : "Add Customer"}
                   </button>
                 </div>
               </form>
@@ -640,56 +590,20 @@ export default function App() {
               <div className="table-wrap">
                 <table>
                   <thead>
-                    <tr>
-                      <th>Customer</th>
-                      <th>Orders</th>
-                      <th>Total spent</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
+                    <tr><th>Customer</th><th>Orders</th><th>Total spent</th><th>Status</th><th>Actions</th></tr>
                   </thead>
                   <tbody>
                     {filtered.map((customer) => (
                       <tr key={customer.id}>
-                        <td>
-                          <b>{customer.name}</b>
-                          <small>{customer.email}</small>
-                        </td>
-                        <td>{customer.orders}</td>
+                        <td><b>{customer.name}</b><small>{customer.email}</small></td>
+                        <td>{customer.orders ?? 0}</td>
                         <td>{formatCurrency(customer.spent)}</td>
-                        <td>
-                          <span
-                            className={`status ${customer.status.toLowerCase()}`}
-                          >
-                            {customer.status}
-                          </span>
-                        </td>
+                        <td><span className={`status ${(customer.status || "New").toLowerCase()}`}>{customer.status || "New"}</span></td>
                         <td>
                           <div className="customer-actions">
-                            <button
-                              className="text-btn"
-                              onClick={() => setSelected(customer)}
-                            >
-                              View
-                            </button>
-                            <button
-                              className="text-btn"
-                              onClick={() => openEditForm(customer)}
-                              aria-label={`Edit ${customer.name}`}
-                            >
-                              <Pencil size={14} /> Edit
-                            </button>
-                            <button
-                              className="text-btn delete-btn"
-                              onClick={() => handleDeleteCustomer(customer)}
-                              disabled={deletingId === customer.id}
-                              aria-label={`Delete ${customer.name}`}
-                            >
-                              <Trash2 size={14} />
-                              {deletingId === customer.id
-                                ? "Deleting..."
-                                : "Delete"}
-                            </button>
+                            <button className="text-btn" onClick={() => setSelected(customer)}>View</button>
+                            <button className="text-btn" onClick={() => openEditForm(customer)} aria-label={`Edit ${customer.name}`}><Pencil size={14} /> Edit</button>
+                            <button className="text-btn delete-btn" onClick={() => handleDeleteCustomer(customer)} disabled={deletingId === customer.id} aria-label={`Delete ${customer.name}`}><Trash2 size={14} />{deletingId === customer.id ? "Deleting..." : "Delete"}</button>
                           </div>
                         </td>
                       </tr>
@@ -699,35 +613,16 @@ export default function App() {
               </div>
             )}
 
-            {!loading && !apiError && filtered.length === 0 && (
-              <p className="empty">No customers found.</p>
-            )}
+            {!loading && !apiError && filtered.length === 0 && <p className="empty">No customers found.</p>}
 
             {selected && (
               <div className="detail">
-                <button
-                  className="close"
-                  onClick={() => setSelected(null)}
-                  aria-label="Close customer details"
-                >
-                  ✕
-                </button>
+                <button className="close" onClick={() => setSelected(null)} aria-label="Close customer details">✕</button>
                 <h3>{selected.name}</h3>
                 <p>{selected.email}</p>
-                <p>
-                  {selected.orders} orders · Lifetime spend{" "}
-                  {formatCurrency(selected.spent)}
-                </p>
+                <p>{selected.orders ?? 0} orders · Lifetime spend {formatCurrency(selected.spent)}</p>
                 <p>Status: {selected.status}</p>
-                <button
-                  className="primary"
-                  onClick={() => {
-                    setSelected(null);
-                    openEditForm(selected);
-                  }}
-                >
-                  <Pencil size={15} /> Edit Customer
-                </button>
+                <button className="primary" onClick={() => { setSelected(null); openEditForm(selected); }}><Pencil size={15} /> Edit Customer</button>
               </div>
             )}
           </section>
@@ -738,71 +633,32 @@ export default function App() {
             <div className="panel-head">
               <div>
                 <h3>Order tracking</h3>
-                <p>
-                  View orders and update their status. These are sample records,
-                  not live WooCommerce orders.
-                </p>
+                <p>View orders and update their status. These are sample records, not live WooCommerce orders.</p>
               </div>
-              <button className="text-btn" onClick={loadOrders}>
-                Refresh
-              </button>
+              <button className="text-btn" onClick={loadOrders}>Refresh</button>
             </div>
 
             {ordersLoading && <p className="empty">Loading orders...</p>}
-            {ordersError && (
-              <p className="form-error" role="alert">
-                {ordersError}
-              </p>
-            )}
-
-            {!ordersLoading && !ordersError && orders.length === 0 && (
-              <p className="empty">No orders available.</p>
-            )}
+            {ordersError && <p className="form-error" role="alert">{ordersError}</p>}
+            {!ordersLoading && orders.length === 0 && <p className="empty">No orders available.</p>}
 
             {!ordersLoading && orders.length > 0 && (
               <div className="table-wrap">
                 <table>
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Items</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
+                  <thead><tr><th>Order ID</th><th>Customer</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th></tr></thead>
                   <tbody>
                     {orders.map((order) => (
                       <tr key={order.id}>
-                        <td>
-                          <b>{order.orderNumber}</b>
-                        </td>
-                        <td>
-                          <b>{order.customer}</b>
-                          <small>{order.customerEmail}</small>
-                        </td>
+                        <td><b>{order.orderNumber}</b></td>
+                        <td><b>{order.customer}</b><small>{order.customerEmail}</small></td>
                         <td>{order.date}</td>
                         <td>{order.items}</td>
                         <td>{formatCurrency(order.total)}</td>
                         <td>
-                          <select
-                            aria-label={`Status for ${order.orderNumber}`}
-                            value={order.status}
-                            disabled={updatingOrderId === order.id}
-                            onChange={(event) =>
-                              handleOrderStatusChange(order, event.target.value)
-                            }
-                          >
-                            {orderStatuses.map((status) => (
-                              <option key={status} value={status}>
-                                {status}
-                              </option>
-                            ))}
+                          <select aria-label={`Status for ${order.orderNumber}`} value={order.status} disabled={updatingOrderId === order.id} onChange={(event) => handleOrderStatusChange(order, event.target.value)}>
+                            {orderStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
                           </select>
-                          {updatingOrderId === order.id && (
-                            <small>Saving...</small>
-                          )}
+                          {updatingOrderId === order.id && <small>Saving...</small>}
                         </td>
                       </tr>
                     ))}
@@ -812,8 +668,9 @@ export default function App() {
             )}
 
             <p className="muted">
-              Order status changes are handled by the backend. Data is held in
-              memory and resets when the server restarts.
+              {usingDemoOrders
+                ? "Demo mode: order status changes are temporary and reset when the page is refreshed."
+                : "Order status changes are handled by the backend. Data is held in memory and resets when the server restarts."}
             </p>
           </section>
         )}
@@ -821,130 +678,56 @@ export default function App() {
         {tab === "Follow-ups" && (
           <section className="panel follow">
             <h3>Customer follow-ups</h3>
-            <p>
-              Prepare a personalised message, save it, and approve it for
-              review.
-            </p>
+            <p>Prepare a personalised message, save it, and approve it for review.</p>
 
             <label htmlFor="followup-customer">Customer</label>
-            <select
-              id="followup-customer"
-              value={selectedFollowupCustomer}
-              onChange={(event) =>
-                handleFollowupCustomerChange(event.target.value)
-              }
-            >
+            <select id="followup-customer" value={selectedFollowupCustomer} onChange={(event) => handleFollowupCustomerChange(event.target.value)}>
               <option value="">Select a customer</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name} ({customer.email})
-                </option>
-              ))}
+              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} ({customer.email})</option>)}
             </select>
 
             <label htmlFor="message-draft">Message draft</label>
-            <textarea
-              id="message-draft"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Select a customer and prepare a follow-up message..."
-            />
+            <textarea id="message-draft" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Select a customer and prepare a follow-up message..." />
 
-            <button
-              className="primary"
-              onClick={handleSaveFollowup}
-              disabled={
-                savingFollowup || !selectedFollowupCustomer || !draft.trim()
-              }
-            >
-              <Plus size={16} />
-              {savingFollowup ? "Saving..." : "Save Draft"}
+            <button className="primary" onClick={handleSaveFollowup} disabled={savingFollowup || !selectedFollowupCustomer || !draft.trim()}>
+              <Plus size={16} />{savingFollowup ? "Saving..." : "Save Draft"}
             </button>
 
-            {followupsError && (
-              <p
-                className={
-                  followupsError.toLowerCase().includes("could not") ||
-                  followupsError.toLowerCase().includes("please select")
-                    ? "form-error"
-                    : "success"
-                }
-                role="status"
-              >
-                {followupsError}
-              </p>
-            )}
+            {followupsError && <p className={followupsError.toLowerCase().includes("could not") || followupsError.toLowerCase().includes("please select") ? "form-error" : "success"} role="status">{followupsError}</p>}
 
             <div className="panel-head followup-list-heading">
-              <div>
-                <h3>Saved follow-ups</h3>
-                <p>Review saved drafts and update their status.</p>
-              </div>
-              <button className="text-btn" onClick={loadFollowups}>
-                Refresh
-              </button>
+              <div><h3>Saved follow-ups</h3><p>Review saved drafts and update their status.</p></div>
+              <button className="text-btn" onClick={loadFollowups}>Refresh</button>
             </div>
 
             {followupsLoading && <p className="empty">Loading follow-ups...</p>}
+            {!followupsLoading && followups.length === 0 && <p className="empty">No follow-up drafts saved yet.</p>}
 
-            {!followupsLoading && followups.length === 0 && (
-              <p className="empty">No follow-up drafts saved yet.</p>
-            )}
-
-            {!followupsLoading &&
-              followups.map((followup) => (
-                <article className="followup-card" key={followup.id}>
-                  <div className="followup-card-heading">
-                    <div>
-                      <h4>{followup.customerName}</h4>
-                      <p>{followup.customerEmail}</p>
-                    </div>
-                    <span className={`status ${followup.status.toLowerCase()}`}>
-                      {followup.status}
-                    </span>
-                  </div>
-
-                  <p className="followup-message">{followup.message}</p>
-
-                  <div className="followup-card-actions">
-                    {followup.status === "Draft" && (
-                      <button
-                        className="primary"
-                        onClick={() => handleApproveFollowup(followup)}
-                        disabled={updatingFollowupId === followup.id}
-                      >
-                        {updatingFollowupId === followup.id
-                          ? "Approving..."
-                          : "Approve Draft"}
-                      </button>
-                    )}
-
-                    <button
-                      className="text-btn delete-btn"
-                      onClick={() => handleDeleteFollowup(followup)}
-                      disabled={deletingFollowupId === followup.id}
-                    >
-                      <Trash2 size={14} />
-                      {deletingFollowupId === followup.id
-                        ? "Deleting..."
-                        : "Delete"}
+            {!followupsLoading && followups.map((followup) => (
+              <article className="followup-card" key={followup.id}>
+                <div className="followup-card-heading">
+                  <div><h4>{followup.customerName}</h4><p>{followup.customerEmail}</p></div>
+                  <span className={`status ${followup.status.toLowerCase()}`}>{followup.status}</span>
+                </div>
+                <p className="followup-message">{followup.message}</p>
+                <div className="followup-card-actions">
+                  {followup.status === "Draft" && (
+                    <button className="primary" onClick={() => handleApproveFollowup(followup)} disabled={updatingFollowupId === followup.id}>
+                      {updatingFollowupId === followup.id ? "Approving..." : "Approve Draft"}
                     </button>
-                  </div>
-                </article>
-              ))}
+                  )}
+                  <button className="text-btn delete-btn" onClick={() => handleDeleteFollowup(followup)} disabled={deletingFollowupId === followup.id}>
+                    <Trash2 size={14} />{deletingFollowupId === followup.id ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
+              </article>
+            ))}
 
-            <p className="muted">
-              Demo only: approving a draft updates its status. No email or
-              external message is sent. Follow-up records are held in memory and
-              reset when the backend restarts.
-            </p>
+            <p className="muted">Demo only: approving a draft changes its status. No message is sent. Follow-up records reset when the backend restarts.</p>
           </section>
         )}
 
-        <footer>
-          SmartCRM · Hackathon prototype · WooCommerce live integration not
-          configured
-        </footer>
+        <footer>SmartCRM · Hackathon prototype · WooCommerce live integration not configured</footer>
       </main>
     </div>
   );
