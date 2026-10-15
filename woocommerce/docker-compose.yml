@@ -1,0 +1,39 @@
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: smartcrm-woo-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wpuser
+      MYSQL_PASSWORD: smartcrm_local_db_password
+      MYSQL_ROOT_PASSWORD: smartcrm_local_root_password
+    volumes:
+      - wordpress_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-psmartcrm_local_root_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  wordpress:
+    image: wordpress:php8.3-apache
+    container_name: smartcrm-woo-wordpress
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8081:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_USER: wpuser
+      WORDPRESS_DB_PASSWORD: smartcrm_local_db_password
+    volumes:
+      - wordpress_data:/var/www/html
+
+volumes:
+  wordpress_db_data:
+  wordpress_data:

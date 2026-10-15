@@ -5,6 +5,7 @@ const customersRouter = require("./routes/customers");
 const ordersRouter = require("./routes/orders");
 
 const followupsRouter = require("./routes/followups");
+const woocommerceRouter = require("./routes/woocommerce");
 const app = express();
 
 app.use(cors());
@@ -20,5 +21,6 @@ app.get("/api/health", (req, res) => {
 app.use("/api/customers", customersRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/followups", followupsRouter);
+app.use("/api/woocommerce", woocommerceRouter);
 
 module.exports = app;
