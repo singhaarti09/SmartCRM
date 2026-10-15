@@ -199,6 +199,12 @@ This executes the backend test suite configured in the project.
 
 SmartCRM aims to provide a simple, centralized workspace for managing e-commerce customers, monitoring orders, and organizing customer follow-ups.
 
+
+## 🎥 Project Demonstration Video
+
+Watch the 2-minute SmartCRM demonstration to see the dashboard, customer management, order tracking, and follow-up features in action.
+
+**Demo Video:** https://drive.google.com/file/d/1uTZI4j02l4IFmbFO7JLIcJoUaym2dd6U/view?usp=sharing
 ---
 
 **Project:** SmartCRM – WooCommerce Customer Hub  
